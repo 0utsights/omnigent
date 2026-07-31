@@ -113,3 +113,40 @@ def test_load_harness_app_loads_test_fixture() -> None:
     """A real module with create_app loads and stashes app.state.harness."""
     app = _runner._load_harness_app("test", "tests.runtime.harnesses._test_harness")
     assert app.state.harness == "test"
+
+
+def test_pending_tokens_dir_uses_stable_runner_id(tmp_path: pytest.TempPath) -> None:
+    """pending_tokens_dir returns a stable path under ~/.omnigent/runners/<id>/."""
+    from omnigent.runner.identity import pending_tokens_dir
+
+    runner_id = "runner_abc123"
+    d = pending_tokens_dir(runner_id)
+    assert d.name == "pending-tokens"
+    assert d.parent.name == runner_id
+    assert d.parent.parent.name == "runners"
+
+
+def test_harness_key_same_env_returns_same_key() -> None:
+    """Same harness + same env always produces the same hkey."""
+    from omnigent.runtime.harnesses.process_manager import _harness_key
+
+    env = {"HARNESS_OPENAI_AGENTS_MODEL": "gpt-4o", "OPENAI_BASE_URL": "http://mock/v1"}
+    assert _harness_key("openai-agents", env) == _harness_key("openai-agents", env)
+
+
+def test_harness_key_different_model_returns_different_key() -> None:
+    """Different model env → different hkey (subprocess isolation)."""
+    from omnigent.runtime.harnesses.process_manager import _harness_key, _model_env_key
+
+    key = _model_env_key("openai-agents")
+    hkey_a = _harness_key("openai-agents", {key: "gpt-4o"})
+    hkey_b = _harness_key("openai-agents", {key: "gpt-4o-mini"})
+    assert hkey_a != hkey_b
+
+
+def test_harness_key_no_env_returns_bare_harness() -> None:
+    """No env → hkey is just the harness name."""
+    from omnigent.runtime.harnesses.process_manager import _harness_key
+
+    assert _harness_key("claude-sdk") == "claude-sdk"
+    assert _harness_key("claude-sdk", {}) == "claude-sdk"
