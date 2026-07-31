@@ -301,6 +301,29 @@ async def test_schemas_for_rpc_error_body_returns_failure() -> None:
     assert "Method not found" in result.failures["proxy"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("rpc_body", "expected_message"),
+    [
+        ({"jsonrpc": "2.0", "id": 1, "error": []}, "non-object RPC error"),
+        ({"jsonrpc": "2.0", "id": 1, "result": []}, "non-object tools/list result"),
+    ],
+)
+async def test_schemas_for_malformed_rpc_objects_return_failure(
+    rpc_body: dict[str, Any],
+    expected_message: str,
+) -> None:
+    """Malformed JSON-RPC objects surface as schema failures rather than empty success."""
+    transport = _StubTransport([_json_resp(rpc_body)])
+    manager = _make_manager(transport)
+
+    result = await manager.schemas_for(_make_spec("github"))
+
+    assert result.schemas == []
+    assert result.tool_names == set()
+    assert expected_message in result.failures["proxy"]
+
+
 # ── call_tool ──────────────────────────────────────────────────────────────
 
 
